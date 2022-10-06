@@ -11,3 +11,5 @@ wgpu = "0.14.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 pollster = "0.2.5"
+clap={version="4.0.10", features=["derive"]}
+bytemuck={version="1.12.1", features = [ "derive" ]}
