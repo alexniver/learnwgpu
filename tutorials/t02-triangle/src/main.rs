@@ -1,6 +1,7 @@
 mod v1;
 mod v2;
 mod v3;
+mod v4;
 mod vertex;
 
 use clap::Parser;
@@ -30,6 +31,9 @@ fn main() {
         }
         "v3" => {
             pollster::block_on(v3::run(event_loop, window));
+        }
+        "v4" => {
+            pollster::block_on(v4::run(event_loop, window));
         }
         _ => {
             info!("invalid version, exit")
