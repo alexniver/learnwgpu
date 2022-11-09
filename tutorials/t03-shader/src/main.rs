@@ -22,18 +22,18 @@ fn main() {
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct Vertex {
     pos: [f32; 3],
-    color: [f32; 4],
+    color: [f32; 3],
 }
 
-fn vertex(pos: [f32; 3], color: [f32; 4]) -> Vertex {
+fn vertex(pos: [f32; 3], color: [f32; 3]) -> Vertex {
     Vertex { pos, color }
 }
 
 fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
     let vertices = vec![
-        vertex([-1., -1., 0.], [1., 0., 0., 1.]), // left bottom, red
-        vertex([-1., -1., 0.], [0., 1., 0., 1.]), // right bottom, green
-        vertex([-1., -1., 0.], [0., 0., 1., 1.]), // top, blue
+        vertex([-1., -1., 0.], [1., 0., 0.]), // left bottom, red
+        vertex([1., -1., 0.], [0., 1., 0.]),  // right bottom, green
+        vertex([0., 1., 0.], [0., 0., 1.]),   // top, blue
     ];
 
     let indices = vec![0, 1, 2];
@@ -60,7 +60,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             &wgpu::DeviceDescriptor {
                 label: None,
                 features: wgpu::Features::empty(),
-                limits: wgpu::Limits::downlevel_defaults(),
+                limits: wgpu::Limits::default(),
             },
             None,
         )
@@ -74,7 +74,13 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         push_constant_ranges: &[],
     });
 
-    let swapchain_format = surface.get_supported_formats(&adapter)[0];
+    let preferred_format = surface.get_supported_formats(&adapter)[0];
+
+    let vertex_buffer_layout = wgpu::VertexBufferLayout {
+        array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+        step_mode: wgpu::VertexStepMode::Vertex,
+        attributes: &wgpu::vertex_attr_array![0=>Float32x3, 1=>Float32x3],
+    };
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
@@ -82,12 +88,12 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: "vs_main",
-            buffers: &[],
+            buffers: &[vertex_buffer_layout],
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
             entry_point: "fs_main",
-            targets: &[Some(swapchain_format.into())],
+            targets: &[Some(preferred_format.into())],
         }),
         primitive: wgpu::PrimitiveState::default(),
         depth_stencil: None,
@@ -97,7 +103,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     let mut config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-        format: swapchain_format,
+        format: preferred_format,
         width: size.width,
         height: size.height,
         present_mode: wgpu::PresentMode::Fifo,
@@ -143,7 +149,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                             view: &view,
                             resolve_target: None,
                             ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
+                                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                                 store: true,
                             },
                         })],
