@@ -1,3 +1,13 @@
+struct VertexInput{
+    @location(0) pos: vec3<f32>,
+    @location(1) color: vec4<f32>,
+};
+
+struct VertexOutput {
+@location(0) tex_coord:vec2<f32>,
+@builtin
+};
+
 @vertex
 fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4<f32> {
     let x = f32(i32(in_vertex_index) - 1);
