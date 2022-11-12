@@ -1,4 +1,7 @@
+use std::time::Instant;
+
 use bytemuck::{Pod, Zeroable};
+use glam::{Mat4, Quat, Vec3};
 use tracing::{info, Level};
 use wgpu::{include_wgsl, Backends, Instance};
 use winit::{
@@ -17,6 +20,10 @@ fn main() {
 
     pollster::block_on(run(event_loop, window));
 }
+
+const TRANSLATE_SPEED: f32 = 1.;
+const ROTATE_SPEED: f32 = 10.;
+const SCALE_SPEED: f32 = 1.;
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -43,6 +50,79 @@ fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
     ];
 
     (vertices, indices)
+}
+
+struct Transform {
+    translation: glam::Vec3,
+    rotation: glam::Quat,
+    scale: glam::Vec3,
+}
+
+impl Transform {
+    fn new() -> Transform {
+        Transform {
+            translation: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            scale: Vec3::ONE,
+            // scale: Vec3::NEG_ONE,
+            // scale: Vec3::splat(0.5),
+        }
+    }
+
+    fn rotate(&self, axis: Vec3, radius: f32) -> Transform {
+        Transform {
+            rotation: self.rotation * Quat::from_axis_angle(axis, radius),
+            ..*self
+        }
+        // self.rotation = self.rotation + Quat::from_axis_angle(axis, radius);
+        // self
+    }
+
+    fn rotate_x(&self, radius: f32) -> Transform {
+        self.rotate(Vec3::X, radius)
+    }
+
+    fn rotate_y(&self, radius: f32) -> Transform {
+        self.rotate(Vec3::Y, radius)
+    }
+
+    fn rotate_z(&self, radius: f32) -> Transform {
+        self.rotate(Vec3::Z, radius)
+    }
+
+    fn to_mat4(&self) -> Mat4 {
+        Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
+    }
+
+    fn buffer_layout<'a>() -> wgpu::VertexBufferLayout<'a> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Mat4>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: mem::size_of::<[f32; 4 * 0]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: mem::size_of::<[f32; 4 * 1]>() as wgpu::BufferAddress,
+                    shader_location: 3,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: mem::size_of::<[f32; 4 * 2]>() as wgpu::BufferAddress,
+                    shader_location: 4,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: mem::size_of::<[f32; 4 * 3]>() as wgpu::BufferAddress,
+                    shader_location: 5,
+                },
+            ],
+        }
+    }
 }
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
@@ -188,7 +268,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: "vs_main",
-            buffers: &[vertex_buffer_layout],
+            buffers: &[vertex_buffer_layout, Transform::buffer_layout()],
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
@@ -226,12 +306,35 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         usage: wgpu::BufferUsages::INDEX,
     });
 
+    // transform
+    let now = Instant::now();
+    let mut transform = Transform::new();
+
+    let mut last_frame_game_time: f32 = 0.;
+
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter, &shader, &pipeline_layout);
         *control_flow = ControlFlow::Wait;
 
         match event {
             Event::RedrawRequested(_) => {
+                let game_time = now.elapsed().as_secs_f32();
+                let delta_time = game_time - last_frame_game_time;
+                last_frame_game_time = game_time;
+
+                info!("------------game time : {:?}", game_time);
+
+                transform =
+                    // transform.rotate_z((std::f32::consts::PI * delta_time).sin() * ROTATE_SPEED);
+                    transform.rotate_x(delta_time);
+                let mat4 = transform.to_mat4();
+                let mut transform_buf =
+                    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Transform Buffer"),
+                        contents: bytemuck::cast_slice(mat4.as_ref()),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+
                 let frame = surface
                     .get_current_texture()
                     .expect("Fail to request next swap chain texture");
@@ -259,7 +362,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
                     rpass.set_pipeline(&render_pipeline);
                     rpass.set_bind_group(0, &diffuse_bind_group, &[]);
-                    rpass.set_vertex_buffer(0, vertices_buf.slice(..));
+                    rpass.set_vertex_buffer(0, vertices_buf.slice(..)); // vertex_buffer
+                    rpass.set_vertex_buffer(1, transform_buf.slice(..)); // transform mat4 buffer
                     rpass.set_index_buffer(indices_buf.slice(..), wgpu::IndexFormat::Uint16);
 
                     // rpass.draw(0..3, 0..1);
@@ -268,6 +372,11 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
                 queue.submit(Some(encoder.finish()));
                 frame.present();
+            }
+            Event::MainEventsCleared => {
+                // RedrawRequested will only trigger once, unless we manually
+                // request it.
+                window.request_redraw();
             }
             Event::WindowEvent { window_id, event } if window_id == window.id() => {
                 match event {
