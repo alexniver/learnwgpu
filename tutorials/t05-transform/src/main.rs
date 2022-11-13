@@ -99,7 +99,11 @@ impl Transform {
 
     pub(crate) fn add_translate(&self, tran_val: f32) -> Transform {
         Transform {
-            translation: self.translation + Vec3::splat(tran_val),
+            translation: Vec3::new(
+                self.translation.x + tran_val,
+                self.translation.y + tran_val,
+                self.translation.z,
+            ),
             ..*self
         }
     }
@@ -342,7 +346,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
                 transform = transform.set_scale(game_time.sin().max(0.1));
 
-                transform = transform.add_translate(game_time.sin() / 200.);
+                transform = transform.add_translate(game_time.cos() / 100.);
 
                 let mat4 = transform.to_mat4();
                 let mut transform_buf =
