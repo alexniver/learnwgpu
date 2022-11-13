@@ -13,7 +13,7 @@ use winit::{
 use wgpu::util::DeviceExt;
 
 fn main() {
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    tracing_subscriber::fmt().with_max_level(Level::WARN).init();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -93,6 +93,13 @@ impl Transform {
     pub(crate) fn set_scale(&self, scale: f32) -> Transform {
         Transform {
             scale: Vec3::splat(scale),
+            ..*self
+        }
+    }
+
+    pub(crate) fn add_translate(&self, tran_val: f32) -> Transform {
+        Transform {
+            translation: self.translation + Vec3::splat(tran_val),
             ..*self
         }
     }
@@ -329,14 +336,15 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 let delta_time = game_time - last_frame_game_time;
                 last_frame_game_time = game_time;
 
-                info!("------------game time : {:?}", game_time);
-
                 transform =
                     // transform.rotate_z((std::f32::consts::PI * delta_time).sin() * ROTATE_SPEED);
                     transform.rotate_z(delta_time);
                 // transform.rotate_x(delta_time);
 
                 transform = transform.set_scale(game_time.sin().max(0.1));
+
+                transform = transform.add_translate(game_time.sin() / 200.);
+
                 let mat4 = transform.to_mat4();
                 let mut transform_buf =
                     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -384,7 +392,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 frame.present();
             }
             Event::RedrawEventsCleared => {
-                info!("----------------------------------- redraw ");
                 // RedrawRequested will only trigger once, unless we manually
                 // request it.
                 window.request_redraw();
