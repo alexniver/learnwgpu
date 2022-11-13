@@ -269,6 +269,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 queue.submit(Some(encoder.finish()));
                 frame.present();
             }
+            Event::RedrawEventsCleared => window.request_redraw(),
             Event::WindowEvent { window_id, event } if window_id == window.id() => {
                 match event {
                     WindowEvent::Resized(size) => {

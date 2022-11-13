@@ -90,6 +90,13 @@ impl Transform {
         self.rotate(Vec3::Z, radius)
     }
 
+    pub(crate) fn set_scale(&self, scale: f32) -> Transform {
+        Transform {
+            scale: Vec3::splat(scale),
+            ..*self
+        }
+    }
+
     fn to_mat4(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
@@ -326,7 +333,10 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
                 transform =
                     // transform.rotate_z((std::f32::consts::PI * delta_time).sin() * ROTATE_SPEED);
-                    transform.rotate_x(delta_time);
+                    transform.rotate_z(delta_time);
+                // transform.rotate_x(delta_time);
+
+                transform = transform.set_scale(game_time.sin().max(0.1));
                 let mat4 = transform.to_mat4();
                 let mut transform_buf =
                     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -348,7 +358,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
                 {
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: None,
+                        label: Some("Render Pass"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                             view: &view,
                             resolve_target: None,
@@ -373,7 +383,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 queue.submit(Some(encoder.finish()));
                 frame.present();
             }
-            Event::MainEventsCleared => {
+            Event::RedrawEventsCleared => {
+                info!("----------------------------------- redraw ");
                 // RedrawRequested will only trigger once, unless we manually
                 // request it.
                 window.request_redraw();
