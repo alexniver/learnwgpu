@@ -336,9 +336,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 let delta_time = game_time - last_frame_game_time;
                 last_frame_game_time = game_time;
 
-                transform =
-                    // transform.rotate_z((std::f32::consts::PI * delta_time).sin() * ROTATE_SPEED);
-                    transform.rotate_z(delta_time);
+                //transform =  transform.rotate_z((std::f32::consts::PI * delta_time).sin() * ROTATE_SPEED);
+                transform = transform.rotate_z(delta_time);
                 // transform.rotate_x(delta_time);
 
                 transform = transform.set_scale(game_time.sin().max(0.1));
