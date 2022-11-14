@@ -15,6 +15,20 @@ struct FragInput {
     @builtin(position) clip_position: vec4<f32>,
 };
 
+@group(0)
+@binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(0)
+@binding(1)
+var s_diffuse: sampler;
+
+@group(1) 
+@binding(0)
+var<uniform> view: mat4x4<f32>;
+@group(2) 
+@binding(0)
+var<uniform> projection: mat4x4<f32>;
+
 @vertex
 fn vs_main(input: VertexInput, transform: Transform) -> FragInput {
     var fragInput : FragInput;
@@ -24,15 +38,11 @@ fn vs_main(input: VertexInput, transform: Transform) -> FragInput {
         transform.mat2,
         transform.mat3,
     );
-    fragInput.clip_position = transform_mat * vec4<f32>(input.pos, 1.0);
+    // projection * view * model * local
+    fragInput.clip_position = projection * view * transform_mat * vec4<f32>(input.pos, 1.0);
     fragInput.tex_coord = input.tex_coord;
     return fragInput;
 }
-
-@group(0) @binding(0)
-var t_diffuse: texture_2d<f32>;
-@group(0) @binding(1)
-var s_diffuse: sampler;
 
 @fragment
 fn fs_main(input: FragInput) -> @location(0) vec4<f32> {

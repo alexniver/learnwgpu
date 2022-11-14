@@ -38,10 +38,10 @@ fn vertex(pos: [f32; 3], tex_coord: [f32; 2]) -> Vertex {
 
 fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
     let vertices = vec![
-        vertex([-0.5, -0.5, 0.], [0., 1.]), // left bottom
-        vertex([0.5, -0.5, 0.], [1., 1.]),  // right bottom
-        vertex([0.5, 0.5, 0.], [1., 0.]),   // top right
-        vertex([-0.5, 0.5, 0.], [0., 0.]),  // top left
+        vertex([-0.5, -0.5, 0.], [0., 1.]), // left bottom front
+        vertex([0.5, -0.5, 0.], [1., 1.]),  // right bottom front
+        vertex([0.5, 0.5, 0.], [1., 0.]),   // top right front
+        vertex([-0.5, 0.5, 0.], [0., 0.]),  // top left front
     ];
 
     let indices = vec![
@@ -238,7 +238,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             ],
         });
 
-    let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let diffuse_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("diffuse_bind_group"),
         layout: &texture_bind_group_layout,
         entries: &[
@@ -253,11 +253,70 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         ],
     });
 
+    // coord
+    let view = Mat4::look_at_rh(Vec3::new(0., 0., -3.), Vec3::ZERO, Vec3::Y);
+    let projection = Mat4::perspective_rh(
+        std::f32::consts::PI / 4.,
+        size.width as f32 / size.height as f32,
+        0.1,
+        40.,
+    );
+
+    // mat4X4 bindgroup layout
+    let mat4_bindgroup_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("mat4x4 bindgroup layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: wgpu::BufferSize::new(64),
+            },
+            count: None,
+        }],
+    });
+
+    let view_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("View Buffer"),
+        contents: bytemuck::cast_slice(view.as_ref()),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+    });
+
+    let projection_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Projection Buffer"),
+        contents: bytemuck::cast_slice(projection.as_ref()),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+    });
+
+    let view_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("view bind group"),
+        layout: &mat4_bindgroup_layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: view_buffer.as_entire_binding(),
+        }],
+    });
+
+    let projection_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Projection Bindgroup Buffer"),
+        layout: &mat4_bindgroup_layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: projection_buffer.as_entire_binding(),
+        }],
+    });
+
+    // shader
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&texture_bind_group_layout],
+        bind_group_layouts: &[
+            &texture_bind_group_layout,
+            &mat4_bindgroup_layout,
+            &mat4_bindgroup_layout,
+        ],
         push_constant_ranges: &[],
     });
 
@@ -333,8 +392,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
                 transform =
                     // transform.rotate_z((std::f32::consts::PI * delta_time).sin() * ROTATE_SPEED);
-                    transform.rotate_z(delta_time);
-                // transform.rotate_x(delta_time);
+                    // transform.rotate_z(delta_time);
+                transform.rotate_x(delta_time);
 
                 transform = transform.set_scale(game_time.sin().max(0.1));
                 let mat4 = transform.to_mat4();
@@ -371,7 +430,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     });
 
                     rpass.set_pipeline(&render_pipeline);
-                    rpass.set_bind_group(0, &diffuse_bind_group, &[]);
+                    rpass.set_bind_group(0, &diffuse_bindgroup, &[]);
+                    rpass.set_bind_group(1, &view_bindgroup, &[]);
+                    rpass.set_bind_group(2, &projection_bindgroup, &[]);
                     rpass.set_vertex_buffer(0, vertices_buf.slice(..)); // vertex_buffer
                     rpass.set_vertex_buffer(1, transform_buf.slice(..)); // transform mat4 buffer
                     rpass.set_index_buffer(indices_buf.slice(..), wgpu::IndexFormat::Uint16);
