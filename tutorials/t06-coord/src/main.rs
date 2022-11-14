@@ -97,6 +97,17 @@ impl Transform {
         }
     }
 
+    pub(crate) fn add_translate(&self, tran_val: f32) -> Transform {
+        Transform {
+            translation: Vec3::new(
+                self.translation.x + tran_val,
+                self.translation.y + tran_val,
+                self.translation.z,
+            ),
+            ..*self
+        }
+    }
+
     fn to_mat4(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
@@ -254,7 +265,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     });
 
     // coord
-    let view = Mat4::look_at_rh(Vec3::new(0., 0., -3.), Vec3::ZERO, Vec3::Y);
+    // let view = Mat4::look_at_rh(Vec3::new(0., 0., 3.), Vec3::ZERO, Vec3::Y);
+    let view = Mat4::look_at_rh(Vec3::new(0., 0., 3.), Vec3::new(0., 1., 0.), Vec3::Y);
     let projection = Mat4::perspective_rh(
         std::f32::consts::PI / 4.,
         size.width as f32 / size.height as f32,
@@ -313,9 +325,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &[
-            &texture_bind_group_layout,
-            &mat4_bindgroup_layout,
-            &mat4_bindgroup_layout,
+            &texture_bind_group_layout, // group 0, texture
+            &mat4_bindgroup_layout,     // group 1, view
+            &mat4_bindgroup_layout,     // group 2, projection
         ],
         push_constant_ranges: &[],
     });
@@ -395,6 +407,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     // transform.rotate_z(delta_time);
                 transform.rotate_x(delta_time);
 
+                transform = transform.add_translate(game_time.cos() / 100.);
                 transform = transform.set_scale(game_time.sin().max(0.1));
                 let mat4 = transform.to_mat4();
                 let mut transform_buf =
