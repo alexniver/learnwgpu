@@ -268,7 +268,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     // let view = Mat4::look_at_rh(Vec3::new(0., 0., 3.), Vec3::ZERO, Vec3::Y);
     let view = Mat4::look_at_rh(Vec3::new(0., 0., 3.), Vec3::new(0., 1., 0.), Vec3::Y);
     let projection = Mat4::perspective_rh(
-        std::f32::consts::PI / 4.,
+        // std::f32::consts::PI / 4.,
+        (45.0 as f32).to_radians(),
         size.width as f32 / size.height as f32,
         0.1,
         40.,
